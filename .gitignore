@@ -416,3 +416,56 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# ---------------------------------------------------------------------------
+# DigitalBank project (Laravel + Next.js + Docker)
+# ---------------------------------------------------------------------------
+
+# Laravel / PHP
+/backend/vendor/
+/backend/storage/app/*
+!/backend/storage/app/.gitkeep
+/backend/storage/framework/cache/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/testing/*
+/backend/storage/framework/views/*
+/backend/storage/logs/*
+!/backend/storage/logs/.gitkeep
+/backend/bootstrap/cache/*.php
+/backend/.phpunit.result.cache
+/backend/.phpunit.cache/
+/backend/.env
+/backend/.env.backup
+/backend/.env.production
+/backend/Homestead.json
+/backend/Homestead.yaml
+/backend/public/hot
+/backend/public/storage
+/backend/public/build
+/backend/.idea
+/backend/.vscode
+
+# Node / Next.js
+/frontend/node_modules/
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+/frontend/.env
+/frontend/.env.local
+/frontend/.env.*.local
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+/frontend/.pnpm-debug.log
+/frontend/coverage/
+
+# Docker / env
+.env
+.env.local
+/docker/data/
+/docker/volumes/
+
+# Tooling
+.phpstorm.meta.php
+_ide_helper.php
+_ide_helper_models.php
