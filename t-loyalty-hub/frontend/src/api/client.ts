@@ -75,7 +75,11 @@ export const api = {
     request<ApiEnvelope<ShadowPortfolio>>(`/ai/shadow-portfolio/${userId}`),
   getDynamicNudging: (userId: number) => request<ApiEnvelope<Nudging>>(`/ai/nudging/${userId}`),
   getCrossSell: (userId: number) => request<ApiEnvelope<CrossSellResponse>>(`/ai/cross-sell/${userId}`),
-  getZeroClick: (userId: number) => request<ApiEnvelope<ZeroClick>>(`/ai/zero-click/${userId}`),
+  getZeroClick: (userId: number, query?: string) =>
+    request<ApiEnvelope<ZeroClick>>(
+      `/ai/zero-click/${userId}`,
+      query && query.trim() ? { query: query.trim() } : undefined,
+    ),
 } as const;
 
 export { ApiError };

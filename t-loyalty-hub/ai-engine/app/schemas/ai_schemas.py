@@ -5,12 +5,19 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class ShadowOfferResponse(BaseModel):
+    partner_name: str
+    cashback_percent: float
+    relevance: float = Field(ge=-1.0, le=1.0)
+
+
 class ShadowPortfolioResponse(BaseModel):
     real_cashback: float = Field(description="Реальный кэшбэк, ₽")
     shadow_cashback: float = Field(description="Идеальный кэшбэк (Shadow), ₽")
     gap: float = Field(description="Упущенная выгода, ₽")
     insight: str
     health_score: int = Field(ge=0, le=100)
+    top_offers: list[ShadowOfferResponse] = Field(default_factory=list)
     is_stub: bool = True
 
 
@@ -19,6 +26,9 @@ class NudgingResponse(BaseModel):
     category: Optional[str]
     boost_multiplier: float = Field(ge=1.0)
     trigger_time: Optional[str]
+    partner_name: Optional[str] = None
+    cashback_percent: Optional[float] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     is_stub: bool = True
 
 
@@ -27,6 +37,7 @@ class CrossSellOfferResponse(BaseModel):
     reason: str
     potential_gain: float
     priority: int
+    affinity: Optional[float] = Field(default=None, ge=-1.0, le=1.0)
 
 
 class CrossSellListResponse(BaseModel):

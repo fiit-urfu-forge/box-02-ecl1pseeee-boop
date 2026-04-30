@@ -98,10 +98,16 @@ export interface CrossSellResponse {
   is_stub?: boolean;
 }
 
+export type ZeroClickIntent = 'COMMERCIAL' | 'INFORMATIONAL' | 'COMMERCIAL_NO_OFFER';
+
 export interface ZeroClick {
   activated_offer: string | null;
   partner_name: string | null;
   probability: number;
+  intent?: ZeroClickIntent | null;
+  cashback_percent?: number | null;
+  match_accuracy?: number | null;
+  query?: string | null;
   is_stub?: boolean;
   is_fallback?: boolean;
 }

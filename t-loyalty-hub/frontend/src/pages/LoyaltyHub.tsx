@@ -9,6 +9,7 @@ import { ShadowPortfolioCard } from '@/components/ai/ShadowPortfolioCard';
 import { NudgingBanner } from '@/components/ai/NudgingBanner';
 import { CrossSellCarousel } from '@/components/ai/CrossSellCarousel';
 import { ZeroClickNotification } from '@/components/ai/ZeroClickNotification';
+import { ZeroClickSearch } from '@/components/ai/ZeroClickSearch';
 import { getSegmentTheme } from '@/lib/segmentTheme';
 
 export function LoyaltyHub() {
@@ -61,6 +62,10 @@ export function LoyaltyHub() {
 
         <ErrorBoundary>
           <NudgingBanner userId={user.id} />
+        </ErrorBoundary>
+
+        <ErrorBoundary>
+          <ZeroClickSearch userId={user.id} />
         </ErrorBoundary>
 
         <ErrorBoundary>
