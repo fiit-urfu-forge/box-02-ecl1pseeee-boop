@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/userStore';
+import { useViewStore } from '@/stores/viewStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { GamificationPanel } from '@/components/gamification/GamificationPanel';
@@ -15,6 +16,7 @@ import { getSegmentTheme } from '@/lib/segmentTheme';
 export function LoyaltyHub() {
   const user = useUserStore((s) => s.user)!;
   const clear = useUserStore((s) => s.clear);
+  const setView = useViewStore((s) => s.setView);
   const theme = getSegmentTheme(user.financial_segment);
 
   return (
@@ -32,6 +34,19 @@ export function LoyaltyHub() {
               {theme.tierName}
             </span>
           </div>
+          <nav className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+            <button
+              className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm font-medium"
+            >
+              Главная
+            </button>
+            <button
+              onClick={() => setView('analytics')}
+              className="text-xs px-3 py-1.5 rounded-full text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors"
+            >
+              Аналитика
+            </button>
+          </nav>
           <div className="flex items-center gap-2">
             <button
               onClick={clear}

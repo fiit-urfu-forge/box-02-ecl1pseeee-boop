@@ -67,12 +67,19 @@ export interface Offer {
   financial_segment: string;
 }
 
+export interface ShadowOffer {
+  partner_name: string;
+  cashback_percent: number;
+  relevance: number;
+}
+
 export interface ShadowPortfolio {
   real_cashback: number;
   shadow_cashback: number;
   gap: number;
   insight: string;
   health_score: number;
+  top_offers?: ShadowOffer[];
   is_stub?: boolean;
   is_fallback?: boolean;
 }
@@ -82,6 +89,9 @@ export interface Nudging {
   category: string | null;
   boost_multiplier: number;
   trigger_time: string | null;
+  partner_name?: string | null;
+  cashback_percent?: number | null;
+  confidence?: number | null;
   is_stub?: boolean;
   is_fallback?: boolean;
 }
@@ -91,6 +101,7 @@ export interface CrossSellItem {
   reason: string;
   potential_gain: number;
   priority: number;
+  affinity?: number | null;
 }
 
 export interface CrossSellResponse {
