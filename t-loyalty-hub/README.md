@@ -1,169 +1,271 @@
 # T-Loyalty Hub
 
-Единый раздел лояльности экосистемы Т-Банка: кэшбэк-программы (Black, Platinum, All Airlines, Bravo), персонализированные офферы партнёров, геймификация (Loyalty Health Score, тиры, стрики) и четыре ИИ-фичи (Shadow Portfolio, Dynamic Nudging, Cross-Sell Optimizer, Zero-Click).
+Единый раздел лояльности для экосистемы Т-Банка. В одном интерфейсе живут кэшбэк-программы (Black, Platinum, All Airlines, Bravo), персонализированные офферы партнёров, геймификация (Loyalty Health Score, тиры, стрики дней) и набор ИИ-фич: Shadow Portfolio, Dynamic Nudging, Cross-Sell Optimizer и Zero-Click Loyalty.
+
+Zero-Click работает на реальном NLP-пайплайне — в нём связка из multilingual MiniLM (семантический поиск по офферам) и mDeBERTa zero-shot classifier (различает коммерческие и информационные запросы). Остальные ИИ-блоки на детерминированных стабах с per-user сидом, чтобы демо-показ был воспроизводимым.
+
+---
 
 ## Стек
 
-| Слой       | Технология                              |
-|------------|-----------------------------------------|
-| Frontend   | React 19 + Vite + TypeScript + Tailwind |
-| Backend    | Laravel 11 (PHP 8.3) + PostgreSQL + Redis |
-| AI Engine  | FastAPI (Python 3.12) — стабы           |
-| Infra      | Docker Compose, nginx                   |
+| Слой       | Технология                                                                |
+|------------|---------------------------------------------------------------------------|
+| Frontend   | React 19 + Vite + TypeScript + Tailwind, Zustand                          |
+| Backend    | Laravel 11 (PHP 8.3), PostgreSQL 16, Redis 7                              |
+| AI Engine  | FastAPI (Python 3.12), sentence-transformers, transformers, PyTorch (CPU) |
+| Infra      | Docker Compose, nginx                                                     |
 
 ```
-Browser  ──►  nginx :8080  ──►  /api/*        ──►  PHP-FPM (Laravel)
-                              ──►  /            ──►  Vite SPA build
-                                                       │
-                              Laravel  ──►  PostgreSQL
-                                       ──►  Redis (cache)
-                                       ──►  ai-engine:8000 (FastAPI stubs)
+Browser ─► nginx :8080 ─► /api/*  ─► PHP-FPM (Laravel) ─► PostgreSQL
+                       └► /       ─► Vite SPA build    ─► Redis
+                                                       └► ai-engine:8000 (FastAPI)
 ```
 
-## Запуск
+Внешний URL — только nginx. Backend, AI-engine и БД сидят в внутренней сети Compose.
 
-### В GitHub Codespaces
+---
+
+## Что нужно поставить
+
+- **Docker Engine 24+** и **Docker Compose v2** (`docker compose version` должно работать)
+- ~6 ГБ свободного места (образ ai-engine с torch + кеш HuggingFace весов ~1.5 ГБ; pgdata)
+- Свободные порты: `8080` (web), опционально `5432` / `6379` если будете прокидывать Postgres/Redis наружу
+
+Локальные PHP / Node / Python ставить не нужно — всё крутится в контейнерах.
+
+---
+
+## Быстрый старт
 
 ```bash
+git clone <repo-url>
 cd t-loyalty-hub
-cp .env.example .env       # опционально — все значения уже с дефолтами
-docker compose up --build  # первый запуск ~3–5 минут
+cp .env.example .env       # все значения уже с дефолтами, можно не править
+docker compose up --build  # первый билд: ~5–8 минут (тащит torch и образы)
 ```
 
-После сборки откройте `http://localhost:8080` (или forwarded URL Codespaces для порта **8080**). Бэкенд при первом старте сам:
+Когда увидите в логах строки вида:
 
-1. Дождётся Postgres
-2. Накатит миграции
-3. Импортирует CSV из `backend/storage/app/data/` (там уже лежат датасеты)
-4. Запустит php-fpm
-
-### Локально (без Codespaces)
-
-```bash
-git clone <repo>
-cd t-loyalty-hub
-docker compose up --build
+```
+nginx-1     | start worker process
+backend-1   | Starting Laravel Octane / php-fpm
+ai-engine-1 | Application startup complete.
 ```
 
-То же самое, требуется только Docker Desktop / Docker Engine + Compose v2.
+— открывайте `http://localhost:8080`. Это страница демо-селектора пользователей: жмёте на любого, попадаете в раздел лояльности.
 
-### Полезные команды
+При первом старте бэкенд автоматически:
+
+1. Дожидается готовности Postgres и Redis (через healthcheck).
+2. Накатывает миграции.
+3. Импортирует CSV-датасеты из `backend/storage/app/data/` (там лежит `Users.csv`, `Accounts.csv`, `LoyaltyPrograms.csv`, `LoyaltyHistory.csv`, `Offers.csv`).
+4. Поднимает php-fpm.
+
+После этого фронт начинает успешно ходить в API.
+
+---
+
+## Структура
+
+```
+t-loyalty-hub/
+├── backend/                       # Laravel 11 API + бизнес-логика + CSV-импорт
+│   ├── app/
+│   │   ├── Console/Commands/ImportCsvCommand.php
+│   │   ├── Http/Controllers/Api/
+│   │   ├── Http/Resources/
+│   │   ├── Models/
+│   │   └── Services/              # LoyaltyService, AiEngineClient, GamificationService, CsvImportService
+│   ├── database/migrations/
+│   ├── routes/api.php
+│   └── tests/Feature/             # 17 PHPUnit-сценариев
+├── ai-engine/                     # FastAPI — стабы + реальный Zero-Click ML
+│   ├── app/
+│   │   ├── routers/               # shadow_portfolio, dynamic_nudging, cross_sell, zero_click
+│   │   ├── schemas/
+│   │   └── services/
+│   │       ├── stub_generator.py
+│   │       └── zero_click_ai.py   # mDeBERTa + MiniLM, ленивая загрузка моделей
+│   └── tests/
+├── frontend/                      # React + Vite + Tailwind
+│   └── src/
+│       ├── api/client.ts
+│       ├── components/{ui,loyalty,gamification,ai}/
+│       ├── pages/{DemoSelector,LoyaltyHub}.tsx
+│       ├── stores/{userStore,themeStore}.ts
+│       └── types/
+├── data/                          # CSV-датасеты, монтируются в ai-engine
+├── docker/nginx/default.conf
+├── docker-compose.yml
+└── .github/workflows/ci.yml
+```
+
+---
+
+## API
+
+Всё под префиксом `/api`. Эндпоинты, требующие пользователя, принимают либо `?user_id=`, либо `{userId}` в пути.
+
+| Метод | Путь                                        | Описание                                |
+|-------|---------------------------------------------|-----------------------------------------|
+| GET   | `/api/users`                                | Список пользователей для демо-селектора |
+| GET   | `/api/users/{id}`                           | Один пользователь                       |
+| GET   | `/api/loyalty/summary?user_id=`             | Сводка кэшбэка по программам            |
+| GET   | `/api/loyalty/history?user_id=&per_page=`   | Пагинированная история выплат           |
+| GET   | `/api/loyalty/programs?user_id=`            | Активные программы лояльности           |
+| GET   | `/api/offers?user_id=`                      | Офферы, отфильтрованные по сегменту     |
+| GET   | `/api/gamification/{userId}`                | Health Score, тир, стрик                |
+| POST  | `/api/gamification/{userId}/visit`          | Записать визит, обновить стрик          |
+| GET   | `/api/ai/shadow-portfolio/{userId}`         | Shadow Portfolio (стаб)                 |
+| GET   | `/api/ai/nudging/{userId}`                  | Dynamic Nudging (стаб)                  |
+| GET   | `/api/ai/cross-sell/{userId}`               | Cross-Sell Optimizer (стаб)             |
+| GET   | `/api/ai/zero-click/{userId}?query=`        | Zero-Click: ML при наличии `query`, иначе стаб |
+
+Если AI-engine упал или таймаутит — Laravel возвращает безопасный fallback с `is_fallback: true`, фронт не падает.
+
+### Zero-Click — формат ответа
+
+```jsonc
+GET /api/ai/zero-click/1?query=заказать пиццу додо
+{
+  "data": {
+    "intent": "COMMERCIAL",            // COMMERCIAL | INFORMATIONAL | COMMERCIAL_NO_OFFER
+    "activated_offer": "Кэшбэк 7% — Додо Пицца",
+    "partner_name": "Додо Пицца",
+    "cashback_percent": 7,
+    "match_accuracy": 0.78,
+    "probability": 0.78,
+    "query": "заказать пиццу додо",
+    "is_stub": false
+  }
+}
+```
+
+Без `query` отдаётся прежний детерминированный стаб (`is_stub: true`).
+
+> **Первый запрос с `query` идёт ~30–90 секунд** — за это время скачиваются веса моделей (~400 МБ) в named volume `hf_cache`. Все последующие запросы укладываются в < 1 с. Перезапуск контейнера не сбрасывает кеш весов.
+
+---
+
+## Полезные команды
 
 ```bash
 # Перезапустить импорт CSV вручную
 docker compose exec backend php artisan loyalty:import
 
 # Тесты бэкенда (SQLite in-memory).
-# ВНИМАНИЕ: всегда указывайте --env=testing, иначе RefreshDatabase
-# может выполниться против Postgres, если конфиг закеширован.
+# ВАЖНО: всегда передавайте --env=testing, иначе при закешированном
+# конфиге RefreshDatabase может выполниться против Postgres.
 docker compose exec backend php artisan config:clear
 docker compose exec backend php artisan test --env=testing
 
 # Тесты AI-engine
 docker compose exec ai-engine pytest -q
 
-# Логи
+# Хвостить логи
 docker compose logs -f backend ai-engine
 
-# Заглушить стек
-docker compose down            # сохраняет данные
-docker compose down -v         # сбрасывает Postgres-том
+# Заглушить стек, оставить данные
+docker compose down
+
+# Снести том Postgres
+docker compose down -v
+
+# Снести кеш HuggingFace-весов (повторно прогреется на следующем запросе)
+docker volume rm t-loyalty-hub_hf_cache
 ```
 
-### Без Docker (быстрая итерация)
-
-Бэкенд против SQLite:
+### Тестирование Zero-Click ML напрямую
 
 ```bash
-cd t-loyalty-hub/backend
+# Без выхода наружу контейнера
+docker compose exec ai-engine python -c "
+import urllib.request, urllib.parse, json
+q = urllib.parse.quote('заказать пиццу додо')
+r = urllib.request.urlopen(f'http://localhost:8000/ai/zero-click/1?query={q}', timeout=120).read()
+print(json.dumps(json.loads(r), ensure_ascii=False, indent=2))
+"
+
+# Через Laravel (порт 8080 проброшен наружу)
+curl 'http://localhost:8080/api/ai/zero-click/1?query=кроссовки%20найк'
+
+# Информационный запрос — модель не активирует оффер
+curl 'http://localhost:8080/api/ai/zero-click/1?query=как%20починить%20кран'
+```
+
+---
+
+## Без Docker (если хочется итерировать быстрее)
+
+Бэкенд на SQLite, без Postgres/Redis:
+
+```bash
+cd backend
 composer install
-php artisan test --env=testing       # 17 тестов, ~1с
+php artisan test --env=testing       # 17 тестов, ~1 с
 ```
 
 AI-engine изолированно:
 
 ```bash
-cd t-loyalty-hub/ai-engine
-python -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/pytest -q                   # 5 тестов
+cd ai-engine
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/pytest -q                   # 5 тестов на стаб-роуты
 .venv/bin/uvicorn app.main:app --reload
+# затем: GET http://localhost:8000/ai/zero-click/1?query=...
+# (CSV ожидается в /app/data/Offers.csv — либо положите рядом и
+#  выставите OFFERS_CSV_PATH=./data/Offers.csv)
+OFFERS_CSV_PATH=../data/Offers.csv .venv/bin/uvicorn app.main:app --reload
 ```
 
-Frontend dev-сервер с проксированием на запущенный nginx:
+Frontend dev-сервер с проксированием на поднятый nginx:
 
 ```bash
-cd t-loyalty-hub/frontend
+cd frontend
 npm install
 VITE_PROXY_TARGET=http://localhost:8080 npm run dev
+# открыть http://localhost:5173
 ```
 
-## Структура
-
-```
-t-loyalty-hub/
-├── backend/              # Laravel 11 — API + бизнес-логика + CSV-импорт
-│   ├── app/
-│   │   ├── Console/Commands/ImportCsvCommand.php
-│   │   ├── Http/Controllers/Api/
-│   │   ├── Http/Resources/
-│   │   ├── Models/
-│   │   └── Services/         # LoyaltyService, AiEngineClient, GamificationService, CsvImportService
-│   ├── database/migrations/
-│   ├── routes/api.php
-│   └── tests/Feature/        # 17 PHPUnit-сценариев
-├── ai-engine/            # FastAPI — заглушки AI-фич
-│   ├── app/
-│   │   ├── routers/          # shadow_portfolio, dynamic_nudging, cross_sell, zero_click
-│   │   ├── schemas/
-│   │   └── services/stub_generator.py
-│   └── tests/
-├── frontend/             # React + Vite + Tailwind
-│   ├── src/
-│   │   ├── api/client.ts
-│   │   ├── components/{ui,loyalty,gamification,ai}/
-│   │   ├── pages/{DemoSelector,LoyaltyHub}.tsx
-│   │   ├── stores/{userStore,themeStore}.ts
-│   │   └── types/
-├── docker-compose.yml
-├── docker/nginx/default.conf
-└── .github/workflows/ci.yml
-```
-
-## API
-
-Все эндпоинты под префиксом `/api`. Полная таблица — в `CLAUDE.md` (§9).
-
-```
-GET  /api/users                             — список пользователей (демо-селектор)
-GET  /api/users/{id}                        — один пользователь
-GET  /api/loyalty/summary?user_id=          — сводка кэшбэка по программам
-GET  /api/loyalty/history?user_id=          — пагинированная история
-GET  /api/loyalty/programs?user_id=         — активные программы
-GET  /api/offers?user_id=                   — офферы по сегменту пользователя
-GET  /api/gamification/{userId}             — Health Score, тир, стрик
-POST /api/gamification/{userId}/visit       — записать визит
-GET  /api/ai/shadow-portfolio/{userId}      — AI Shadow Portfolio (стаб)
-GET  /api/ai/nudging/{userId}               — Dynamic Nudging (стаб)
-GET  /api/ai/cross-sell/{userId}            — Cross-Sell Optimizer (стаб)
-GET  /api/ai/zero-click/{userId}            — Zero-Click Loyalty (стаб)
-```
-
-При недоступности AI-engine Laravel возвращает корректный fallback с `is_fallback: true` — фронт не падает.
+---
 
 ## Тестирование
 
 | Слой       | Команда                              | Тестов |
 |------------|--------------------------------------|--------|
-| Backend    | `php artisan test`                   | 17     |
+| Backend    | `php artisan test --env=testing`     | 17     |
 | AI-engine  | `pytest -q`                          | 5      |
 | Frontend   | `npm run build` (typecheck + bundle) | —      |
 
-CI запускает все три набора автоматически (`.github/workflows/ci.yml`).
+GitHub Actions гоняет все три набора на каждый push в `main` и каждый PR — см. `.github/workflows/ci.yml`.
+
+---
 
 ## Заметки по архитектуре
 
-- **Кэш Redis** для `loyalty:summary:*`, `gamification:*`, AI-ответов; TTL заданы в `LoyaltyService` / `GamificationService`.
-- **Circuit breaker** в `AiEngineClient` — при таймауте/5xx возвращает безопасный fallback.
-- **CSV-импорт идемпотентен** — повторный запуск делает upsert по уникальным ключам.
-- **Тёмная тема** через класс `.dark` на `<html>`, токены сохраняются в `localStorage`.
-- **ErrorBoundary** оборачивает каждый AI-блок отдельно: падение одного виджета не ломает страницу.
+- **Redis-кэш** для `loyalty:summary:*` (TTL 5 минут), `gamification:*` (TTL 60 с) и ответов AI-стабов. TTL заданы в соответствующих сервисах.
+- **Circuit Breaker** в `AiEngineClient` — при таймауте или 5xx от FastAPI возвращает безопасный fallback с заполненными нулями полями. Никаких полу-разваленных страниц на фронте.
+- **CSV-импорт идемпотентен** — повторный `php artisan loyalty:import` делает upsert по уникальным ключам, дубликатов не будет.
+- **Тёмная тема** через класс `.dark` на `<html>`, выбор сохраняется в `localStorage`. Все компоненты содержат `dark:`-варианты Tailwind-классов.
+- **ErrorBoundary** оборачивает каждый AI-виджет независимо — упавший Shadow Portfolio не уронит Cross-Sell.
+- **Zero-Click ML** грузит веса моделей лениво при первом вызове с `query`, под mutex'ом, чтобы под нагрузкой не было дублирующейся загрузки. Healthcheck не зависит от готовности моделей — контейнер сразу `healthy`.
+
+---
+
+## Траблшутинг
+
+**`docker compose up` падает на пуле образов / `torch`**
+Сборка `ai-engine` тянет ~1 ГБ wheel'ов. Если интернет нестабильный — повторите `docker compose build ai-engine`, кеш слоёв уцелеет.
+
+**`pq: database "tloyalty" does not exist` на старте бэкенда**
+Postgres не успел подняться. Compose-healthcheck должен был отработать, но если стартанули вручную в неправильном порядке — `docker compose down -v && docker compose up`.
+
+**`/api/ai/zero-click/...` отвечает `503 Offers dataset not mounted`**
+Не примонтировалась `./data` в `ai-engine`. Проверьте, что вы запускали из директории `t-loyalty-hub/`, а не откуда-то ещё, и что `./data/Offers.csv` существует.
+
+**Первый запрос с `query` отвалился по таймауту**
+Laravel-клиент по умолчанию ждёт 5 с (см. `AI_ENGINE_TIMEOUT` в `.env`). Перед демо разогрейте модель напрямую — `docker compose exec ai-engine ... ?query=test`. После прогрева ответы возвращаются за < 1 с.
+
+**Хочется свежий стейт БД**
+`docker compose down -v` сбросит том `pgdata`, на следующем `up` миграции и импорт CSV прокатятся заново.

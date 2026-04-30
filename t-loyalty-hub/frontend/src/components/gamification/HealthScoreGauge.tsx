@@ -1,3 +1,7 @@
+import { useId } from 'react';
+import { useUserStore } from '@/stores/userStore';
+import { getSegmentTheme } from '@/lib/segmentTheme';
+
 interface Props {
   score: number;
   tier: string;
@@ -5,26 +9,37 @@ interface Props {
 }
 
 export function HealthScoreGauge({ score, tier, streakDays }: Props) {
-  const circumference = 2 * Math.PI * 54;
-  const offset = circumference - (Math.max(0, Math.min(100, score)) / 100) * circumference;
+  const segment = useUserStore((s) => s.user?.financial_segment);
+  const theme = getSegmentTheme(segment);
+  const gradientId = useId();
 
-  const scoreColor = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#94a3b8';
+  const safeScore = Math.max(0, Math.min(100, score));
+  const circumference = 2 * Math.PI * 54;
+  const offset = circumference - (safeScore / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-3 p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
+    <div
+      className={`flex flex-col items-center gap-3 p-6 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border ${theme.cardAccentBorder}`}
+    >
       <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
         Loyalty Health
       </h2>
 
       <div className="relative w-32 h-32">
         <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={theme.ringFrom} />
+              <stop offset="100%" stopColor={theme.ringTo} />
+            </linearGradient>
+          </defs>
           <circle cx="60" cy="60" r="54" fill="none" stroke="#e5e7eb" strokeWidth="10" className="dark:stroke-gray-700" />
           <circle
             cx="60"
             cy="60"
             r="54"
             fill="none"
-            stroke={scoreColor}
+            stroke={`url(#${gradientId})`}
             strokeWidth="10"
             strokeLinecap="round"
             strokeDasharray={circumference}
