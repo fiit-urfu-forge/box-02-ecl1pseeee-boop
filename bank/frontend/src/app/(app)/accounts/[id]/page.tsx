@@ -15,12 +15,17 @@ import { toast } from "@/components/ui/Toast";
 import type { Account } from "@/types/api";
 
 export default function AccountDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = params?.id ?? "";
+  // useParams() is the Next 14/15-agnostic client-side reader. Never `use()`
+  // it — it's a plain object, not a Promise. `params` may be null on the
+  // very first render, and `id` may be a string[] for catch-all routes, so
+  // we normalise both.
+  const rawParams = useParams<{ id: string | string[] }>();
+  const id = Array.isArray(rawParams?.id) ? rawParams.id[0] : rawParams?.id ?? "";
 
   const q = useQuery({
     queryKey: ["account", id],
     queryFn: () => api.getAccount(id),
+    enabled: !!id,
     refetchInterval: 30_000,
   });
 
@@ -39,7 +44,7 @@ export default function AccountDetailPage() {
         <ArrowLeft className="h-4 w-4" /> К счетам
       </Link>
 
-      {q.isLoading ? (
+      {!id || q.isLoading || q.isPending ? (
         <Skeleton className="h-64" />
       ) : q.isError ? (
         <Alert variant="danger">Не удалось загрузить счёт.</Alert>

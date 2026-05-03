@@ -13,12 +13,17 @@ import { formatDateTime, formatMoney } from "@/lib/format";
 import type { Transaction } from "@/types/api";
 
 export default function TransferDetailPage() {
-  const params = useParams<{ id: string }>();
-  const id = params?.id ?? "";
+  // useParams() is the Next 14/15-agnostic client-side reader. Never `use()`
+  // it — it's a plain object, not a Promise. `params` may be null on the
+  // very first render, and `id` may be a string[] for catch-all routes, so
+  // we normalise both.
+  const rawParams = useParams<{ id: string | string[] }>();
+  const id = Array.isArray(rawParams?.id) ? rawParams.id[0] : rawParams?.id ?? "";
 
   const q = useQuery({
     queryKey: ["transfer", id],
     queryFn: () => api.getTransfer(id),
+    enabled: !!id,
     // Keep polling while the transfer is not terminal.
     refetchInterval: (q) => {
       const data = q.state.data as Transaction | undefined;
@@ -33,7 +38,7 @@ export default function TransferDetailPage() {
         <ArrowLeft className="h-4 w-4" /> К истории
       </Link>
 
-      {q.isLoading ? (
+      {!id || q.isLoading || q.isPending ? (
         <Skeleton className="h-64" />
       ) : q.isError || !q.data ? (
         <Alert variant="danger">Не удалось загрузить операцию.</Alert>

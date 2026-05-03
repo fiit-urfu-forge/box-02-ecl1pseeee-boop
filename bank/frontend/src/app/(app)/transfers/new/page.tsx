@@ -61,7 +61,7 @@ function NewTransferForm() {
     resolver: zodResolver(Schema),
     mode: "onBlur",
     defaultValues: {
-      sender_account_id: search.get("sender") ?? "",
+      sender_account_id: search?.get("sender") ?? "",
       receiver_account_number: "",
       amount: "",
       description: "",
