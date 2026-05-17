@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <!--
+        Файлы Acmp*.cs — самодостаточные версии решений для отправки на онлайн-судей
+        (acmp и т.п.). У каждого свой Main, поэтому из общей сборки они исключены,
+        чтобы не конфликтовать с точкой входа Program.cs. В IDE по-прежнему видны
+        как None-элементы.
+    -->
+    <ItemGroup>
+        <Compile Remove="**/Acmp*.cs" />
+        <None Include="**/Acmp*.cs" />
+    </ItemGroup>
+
+</Project>
